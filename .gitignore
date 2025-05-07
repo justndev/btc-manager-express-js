@@ -1,0 +1,5 @@
+.env
+derived_wallets.csv
+wallet.txt
+.idea/
+node_modules/
