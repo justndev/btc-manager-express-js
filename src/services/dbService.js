@@ -1,6 +1,6 @@
-const Payment = require('./src/models/payment');
-const Unpaid = require('./src/models/unpaid');
-const Paid = require('./src/models/paid');
+const Payment = require('../models/payment');
+const Unpaid = require('../models/unpaid');
+const Paid = require('../models/paid');
 
 const {DataTypes} = require("sequelize");
 

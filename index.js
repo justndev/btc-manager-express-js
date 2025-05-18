@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const btcService = require("./btcService");
+const btcService = require("./src/services/btcService");
 const mainService = require("./src/mainService");
 const { Worker } = require('worker_threads');
 const { Sequelize, DataTypes } = require('sequelize');
@@ -34,7 +34,7 @@ app.get("/api/wallet/create", async (req, res) => {
     // const wallet = await btcService.createHDWallet()
     // console.log(wallet);
     // await btcService.getHDWallet()
-    await btcService.checkAddressBalance()
+    // await btcService.checkAddressBalance()
     res.status(200).send(html);
 });
 

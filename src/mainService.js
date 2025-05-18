@@ -1,5 +1,5 @@
-const btcService = require("../btcService");
-const bdService = require("../dbService");
+const btcService = require("./services/btcService");
+const bdService = require("./services/dbService");
 const unpaidInstance = require("./models/unpaid");
 const axios = require("axios");
 
