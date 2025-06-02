@@ -10,9 +10,9 @@ const sequelize = new Sequelize('btc-manager-db', 'postgres', 'postgres', {
     host: 'localhost',
     dialect: 'postgres',
 });
-
 sequelize.authenticate()
 require("dotenv").config();
+
 const app = express();
 const port = process.env.PORT || 6000;
 
@@ -42,10 +42,11 @@ app.get("/payment/create", async (req, res) => {
     res.status(200).send(await mainService.createNewPayment());
 });
 
-app.get("/payment/check", async (req, res) => {
+app.get("/payment/get", async (req, res) => {
     const {id} = req.query;
     try {
-        const result = await mainService.checkPaymentById(niid);
+        const result = await mainService.getPaymentById(id);
+        console.log(result);
         res.status(200).send(result);
     } catch (e) {
         console.error(e);

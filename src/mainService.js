@@ -70,11 +70,11 @@ class MainService {
     }
 
     isPaymentNeedToBeChecked(date, currentChecks, createdAt) {
-        const timePastInMins = (new Date() - date)/60000*144;
+        const timePastInMins = (new Date() - date)/60000;
 
         console.log(new Date() - new Date(createdAt));
 
-        const timePastInMinsFromCreation = (new Date() - new Date(createdAt))/60000*144;
+        const timePastInMinsFromCreation = (new Date() - new Date(createdAt))/60000;
         console.log(`@isPaymentNeedToBeChecked. timePastInMins: ${timePastInMins}`);
 
         switch (currentChecks) {
@@ -130,9 +130,13 @@ class MainService {
 
                 return false;
             }
-            // const balance = await btcService.checkAddressBalance(paymentInstance[0].dataValues.address);
+            const balance = await btcService.checkAddressBalance(paymentInstance[0].dataValues.address);
 
-            if (0 >= paymentInstance[0].dataValues.priceInBtc) {
+            if (balance > 0) {
+                bdService.changePaymentBalance(paymentInstance, balance)
+            }
+
+            if (balance >= paymentInstance[0].dataValues.priceInBtc) {
                 await bdService.changePaymentToPaid(paymentInstance[0].dataValues.id)
             }
             console.log('Checking unpaid payment, returning true coz needed to be checked');
@@ -144,19 +148,23 @@ class MainService {
         }
     }
 
-    async checkPaymentById(paymentId) {
+    async getPaymentById(paymentId) {
         try {
-            const paymentInstance = bdService.getPaymentById(paymentId);
+
+            const paymentInstance = await bdService.getPaymentById(paymentId);
             if (!paymentInstance) {
                 return "No payment found";
             }
-            const balance = await btcService.checkAddressBalance(paymentInstance[0].dataValues.address);
-            if (0 >= paymentInstance[0].dataValues.priceInBtc) {
-                await bdService.changePaymentToPaid(paymentInstance[0].dataValues.id)
-                return "Payment was paid!"
-            } else {
-                return `Not enough money transferred. Current balance: ${balance}, required: ${paymentInstance[0].dataValues.priceInBtc}`
-            }
+
+            return {id: paymentInstance[0].dataValues.id, address: paymentInstance[0].dataValues.address, status: paymentInstance[0].dataValues.status, createdAt: paymentInstance[0].dataValues.createdAt, totalChecks: paymentInstance[0].dataValues.totalChecks, lastTimeChecked: paymentInstance[0].dataValues.lastTimeChecked.lastTimeChecked, priceInBtc: paymentInstance[0].dataValues.priceInBtc, btcExchangeRate: paymentInstance[0].dataValues.btcExchangeRate, balance: paymentInstance[0].dataValues.balance};
+
+            // const balance = await btcService.checkAddressBalance(paymentInstance[0].dataValues.address);
+            // if (0 >= paymentInstance[0].dataValues.priceInBtc) {
+            //     await bdService.changePaymentToPaid(paymentInstance[0].dataValues.id)
+            //     return "Payment was paid!"
+            // } else {
+            //     return `Not enough money transferred. Current balance: ${balance}, required: ${paymentInstance[0].dataValues.priceInBtc}`
+            // }
         } catch (e) {
             console.error(`@checkPaymentById: ${e}`);
             return "Too many request or unexpected error"

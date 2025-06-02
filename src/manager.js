@@ -5,7 +5,7 @@ async function startManager() {
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     while(true){
-        const mins = 10/144
+        const mins = 10
         await mainService.checkUnpaidPayments();
         await sleep(60000 * mins);
 

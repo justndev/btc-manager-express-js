@@ -6,16 +6,7 @@ const {DataTypes} = require("sequelize");
 
 class DBService {
     async createNewPayment(wallet, IP, btcExchangeRate, priceInBtc) {
-        console.log("creating new payment");
         try {
-
-            // await Payment.drop()
-            // await Unpaid.drop()
-            // await Paid.drop()
-            await Payment.sync()
-            await Unpaid.sync()
-            await Paid.sync()
-
             const newPayment = await Payment.create({
                 IP: IP,
                 createdAt: new Date().toISOString(),
@@ -23,6 +14,7 @@ class DBService {
                 senderWallet: '',
                 lastTimeChecked: new Date(),
                 totalChecks: 0,
+                balance: 0,
                 address: wallet.address,
                 public: wallet.public,
                 path: wallet.path,
@@ -30,7 +22,7 @@ class DBService {
                 btcExchangeRate: btcExchangeRate
             });
             await Unpaid.create({id: newPayment.id});
-            return {address: newPayment.address, id: newPayment.id};
+            return {address: newPayment.address, id: newPayment.id, createdAt: newPayment.createdAt, price: newPayment.priceInBtc};
         } catch (e) {
             console.error(`@createNewPayment: ${e}`);
             throw e;
@@ -61,6 +53,16 @@ class DBService {
                 await Paid.create({id: payment[0].dataValues.id})
             }
             payment[0].status = 'paid'
+            payment[0].save()
+        } catch (e) {
+            console.error(`@changePaymentToPaid: ${e}`);
+            throw e;
+        }
+    }
+
+    async changePaymentBalance(payment, newBalance) {
+        try {
+            payment[0].balance = newBalance
             payment[0].save()
         } catch (e) {
             console.error(`@changePaymentToPaid: ${e}`);

@@ -19,6 +19,7 @@ const Payment = sequelize.define('payments', {
     address: DataTypes.STRING,
     public: DataTypes.STRING,
     path: DataTypes.STRING,
+    balance: DataTypes.DOUBLE,
     btcExchangeRate: DataTypes.DOUBLE,
     priceInBtc: DataTypes.DOUBLE,
 });
