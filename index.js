@@ -4,6 +4,9 @@ const btcService = require("./src/services/btcService");
 const mainService = require("./src/mainService");
 const { Worker } = require('worker_threads');
 const { Sequelize, DataTypes } = require('sequelize');
+const Payment = require("./src/models/payment");
+const Paid = require("./src/models/paid");
+const Unpaid = require("./src/models/unpaid");
 
 
 const sequelize = new Sequelize('btc-manager-db', 'postgres', 'postgres', {
@@ -31,21 +34,43 @@ process.on('unhandledRejection', (reason, promise) => {
 
 
 app.get("/api/wallet/create", async (req, res) => {
-    // const wallet = await btcService.createHDWallet()
-    // console.log(wallet);
-    // await btcService.getHDWallet()
-    // await btcService.checkAddressBalance()
+    console.log('1')
+    const wallet = await btcService.createTestHDWallet()
+    console.log(wallet);
+    await btcService.getTestHDWallet()
     res.status(200).send(html);
 });
 
 app.get("/payment/create", async (req, res) => {
-    res.status(200).send(await mainService.createNewPayment());
+    const result = await mainService.createNewPayment()
+    console.log(`result`)
+    console.log(result);
+    res.status(200).send(result);
+});
+
+app.get('/api/test/payment/create', async (req, res) => {
+    const result = await mainService.createTestPayment()
+    res.status(200).send(result);
+})
+
+app.post('/api/webhook', (req, res) => {
+    const eventType = req.headers['x-eventtype'];
+    const txData = req.body;
+
+    console.log(`Received WebHook: ${eventType}`);
+    console.log(txData);
+
+    // Example: Mark order as paid based on tx hash or address
+    // TODO: Add logic to match txData.address or outputs to your database/payment system
+
+    res.sendStatus(200); // Must respond with 200 to avoid retries
 });
 
 app.get("/payment/get", async (req, res) => {
     const {id} = req.query;
     try {
         const result = await mainService.getPaymentById(id);
+        console.log(`result`)
         console.log(result);
         res.status(200).send(result);
     } catch (e) {

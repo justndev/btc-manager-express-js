@@ -18,6 +18,17 @@ class MainService {
         }
     }
 
+    async createTestPayment() {
+        try {
+            const derivedAddress = await btcService.deriveTestAddress()
+            const result = await btcService.createTestWebHook(derivedAddress.address);
+            console.log(result);
+            return result
+        } catch (e) {
+            console.error(`@createTestPayment: ${e}`)
+        }
+    }
+
     async checkPaymentStatusById(id) {
         const payment = await bdService.getPaymentById(id)
         if (!payment) {
