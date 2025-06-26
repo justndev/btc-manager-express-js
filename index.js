@@ -41,18 +41,15 @@ app.get("/api/wallet/create", async (req, res) => {
     res.status(200).send(html);
 });
 
-app.get("/payment/create", async (req, res) => {
-    const result = await mainService.createNewPayment()
-    console.log(`result`)
-    console.log(result);
-    res.status(200).send(result);
-});
+
 
 app.get('/api/test/payment/create', async (req, res) => {
     const result = await mainService.createTestPayment()
     res.status(200).send(result);
 })
-
+app.get('/api/health', async (req, res) => {
+    res.status(200).send();
+})
 app.post('/api/webhook', (req, res) => {
     const eventType = req.headers['x-eventtype'];
     const txData = req.body;
@@ -66,6 +63,8 @@ app.post('/api/webhook', (req, res) => {
     res.sendStatus(200); // Must respond with 200 to avoid retries
 });
 
+
+
 app.get("/payment/get", async (req, res) => {
     const {id} = req.query;
     try {
@@ -77,6 +76,13 @@ app.get("/payment/get", async (req, res) => {
         console.error(e);
         res.status(405).send("error");
     }
+});
+
+app.get("/payment/create", async (req, res) => {
+    const result = await mainService.createNewPayment()
+    console.log(`result`)
+    console.log(result);
+    res.status(200).send(result);
 });
 
 app.listen(port, () => console.log(`Server running on port ${port}`));
