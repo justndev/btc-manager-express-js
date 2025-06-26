@@ -96,7 +96,7 @@ class BtcService {
             {
                 event: 'confirmed-tx',
                 address: address,
-                url: 'https://tempchat.xyz/api/webhook'
+                url: 'https://tempchat.xyz/btc/webhook'
             },
             {
                 headers: {
