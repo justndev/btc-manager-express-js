@@ -33,7 +33,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 
-app.get("/api/wallet/create", async (req, res) => {
+app.get("/btc/wallet/create", async (req, res) => {
     console.log('1')
     const wallet = await btcService.createTestHDWallet()
     console.log(wallet);
@@ -43,14 +43,14 @@ app.get("/api/wallet/create", async (req, res) => {
 
 
 
-app.get('/api/test/payment/create', async (req, res) => {
+app.get('/btc/test/payment/create', async (req, res) => {
     const result = await mainService.createTestPayment()
     res.status(200).send(result);
 })
-app.get('/api/health', async (req, res) => {
+app.get('/btc/health', async (req, res) => {
     res.status(200).send();
 })
-app.post('/api/webhook', (req, res) => {
+app.post('/btc/webhook', (req, res) => {
     const eventType = req.headers['x-eventtype'];
     const txData = req.body;
 
