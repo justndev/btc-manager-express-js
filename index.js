@@ -1,12 +1,8 @@
 const express = require("express");
 const cors = require("cors");
-const btcService = require("./src/services/btcService");
 const mainService = require("./src/mainService");
 const { Worker } = require('worker_threads');
-const { Sequelize, DataTypes } = require('sequelize');
-const Payment = require("./src/models/payment");
-const Paid = require("./src/models/paid");
-const Unpaid = require("./src/models/unpaid");
+const { Sequelize } = require('sequelize');
 
 
 const sequelize = new Sequelize('btc-manager-db', 'postgres', 'postgres', {
@@ -32,57 +28,65 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('⚠️ Unhandled Rejection:', reason);
 });
 
-
-app.get("/wallet/create", async (req, res) => {
-    console.log('1')
-    const wallet = await btcService.createTestHDWallet()
-    console.log(wallet);
-    await btcService.getTestHDWallet()
-    res.status(200).send(html);
-});
+// Used for test purposes
+// app.get("/wallet/create", async (req, res) => {
+//     console.log('1')
+//     const wallet = await btcService.createTestHDWallet()
+//     console.log(wallet);
+//     await btcService.getTestHDWallet()
+//     res.status(200).send(html);
+// });
+// app.get('/test', async (req, res) => {
+//     res.status(200).send("success")
+// })
 
 
 
 app.get('/test/payment/create', async (req, res) => {
-    const result = await mainService.createTestPayment()
-    res.status(200).send(result);
+    try {
+        const txData = req.body;
+        await mainService.acknowledgeTestWebHookInput(txData)
+        res.sendStatus(200);
+    } catch (e) {
+        console.error(`@/test/payment/create: ${e}`);
+        res.status(500).send(`Internal Server Error: ${e.message}`);
+    }
 })
+
 app.get('/health', async (req, res) => {
     res.status(200).send();
 })
-app.post('/webhook', (req, res) => {
-    const eventType = req.headers['x-eventtype'];
-    const txData = req.body;
 
-    console.log(`Received WebHook: ${eventType}`);
-    console.log(txData);
-
-    // Example: Mark order as paid based on tx hash or address
-    // TODO: Add logic to match txData.address or outputs to your database/payment system
-
-    res.sendStatus(200); // Must respond with 200 to avoid retries
+app.post('/webhook', async (req, res) => {
+    try {
+        const txData = req.body;
+        await mainService.acknowledgeTestWebHookInput(txData)
+        res.sendStatus(200);
+    } catch (e) {
+        console.error(`@/webhook: ${e}`);
+        res.sendStatus(200);
+    }
 });
-
-
 
 app.get("/payment/get", async (req, res) => {
     const {id} = req.query;
     try {
         const result = await mainService.getPaymentById(id);
-        console.log(`result`)
-        console.log(result);
         res.status(200).send(result);
     } catch (e) {
-        console.error(e);
-        res.status(405).send("error");
+        console.error(`@/payment/get: ${e}`);
+        res.status(500).send(`Internal Server Error: ${e.message}`);
     }
 });
 
 app.get("/payment/create", async (req, res) => {
-    const result = await mainService.createNewPayment()
-    console.log(`result`)
-    console.log(result);
-    res.status(200).send(result);
+    try {
+        const result = await mainService.createNewPayment()
+        res.status(200).send(result);
+    } catch (e) {
+        console.error(`@/payment/create: ${e}`);
+        res.status(500).send(`Internal Server Error: ${e.message}`);
+    }
 });
 
 app.listen(port, () => console.log(`Server running on port ${port}`));

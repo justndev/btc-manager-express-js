@@ -1,31 +1,61 @@
 const btcService = require("./services/btcService");
 const bdService = require("./services/dbService");
-const unpaidInstance = require("./models/unpaid");
 const axios = require("axios");
 
 class MainService {
-    checks = 0;
-    currentHour = 25;
-
     async createNewPayment() {
         try {
-            const derivedAddress = await btcService.deriveAddress()
-            const btcExchangeRate = (await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur')).data.bitcoin.eur
+            const derivedAddress = await btcService.deriveAddress();
+            const result = await btcService.createWebhook(derivedAddress.address);
+            const webHookId = result.id;
+            const btcExchangeRate = (await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur')).data.bitcoin.eur;
             const priceInBtc = parseFloat((10 / btcExchangeRate).toFixed(8));
-            return await bdService.createNewPayment(derivedAddress, "1.1.1.1", btcExchangeRate, priceInBtc)
+            const paymentInstance = await bdService.createNewPayment(derivedAddress, "1.1.1.1", btcExchangeRate, priceInBtc, webHookId);
+            await bdService.putPaymentToUnpaidById(paymentInstance.id);
+
+            console.log(`?createNewPayment: success, ${paymentInstance.id}`)
+            return paymentInstance;
         } catch (e) {
-            console.error(`@createNewPayment: ${e}`)
+            console.error(`@createNewPayment: ${e.message}`);
+            throw e;
         }
     }
 
-    async createTestPayment() {
+    async createNewTestPayment() {
         try {
             const derivedAddress = await btcService.deriveTestAddress()
-            const result = await btcService.createTestWebHook(derivedAddress.address);
-            console.log(result);
-            return result
+            const result = await btcService.createTestWebhook(derivedAddress.address);
+            const webHookId = result.id
+            const btcExchangeRate = (await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur')).data.bitcoin.eur
+            const priceInBtc = parseFloat((10 / btcExchangeRate).toFixed(8));
+            const paymentInstance = await bdService.createNewPayment(derivedAddress, "1.1.1.1", btcExchangeRate, priceInBtc, webHookId)
+            await bdService.putPaymentToUnpaidById(paymentInstance.id)
+
+            console.log(`?createNewTestPayment: success, ${paymentInstance.id}`)
+            return paymentInstance
         } catch (e) {
-            console.error(`@createTestPayment: ${e}`)
+            console.error(`@createTestPayment: ${e}`);
+            throw e;
+        }
+    }
+
+    async createNewDummyPayment() {
+        try {
+            const dummyWallet = {
+                address: 'dummyAddress',
+                path: 'dummyPath',
+                public: 'dummyPublic'
+            }
+            const btcExchangeRate = (await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur')).data.bitcoin.eur
+            const priceInBtc = parseFloat((10 / btcExchangeRate).toFixed(8));
+            const paymentInstance = await bdService.createNewPayment(dummyWallet, "1.1.1.1", btcExchangeRate, priceInBtc, 'dummyWebHookId')
+            await bdService.putPaymentToUnpaidById(paymentInstance.id)
+
+            console.log(`?createNewDummyPayment: success, ${paymentInstance.id}`)
+            return paymentInstance;
+        } catch (e) {
+            console.error(`@createNewDummyPayment: ${e}`)
+            throw e;
         }
     }
 
@@ -37,155 +67,87 @@ class MainService {
         return payment[0].dataValues.status === 'paid';
     }
 
-    sleep(ms) {
-        return new Promise((resolve) => {
-            setTimeout(resolve, ms);
-        });
-    }
 
     async checkUnpaidPayments() {
-        console.log("Checking unpaid payments...");
+        console.log("Deleting unpaid payments...");
         console.log(new Date().toISOString());
-        const currentHour = this.getCurrentHour();
-        console.log(this.checks)
-        if (currentHour !== this.currentHour) {
-            this.currentHour = currentHour;
-            this.checks = 0;
-        }
+
+        const currentTime = new Date()
+        const EXPIRATION_TIME_IN_MS = 10 * 60 * 60 * 1000; // 10 hours
 
         try {
             const unpaidPayments = await bdService.getUnpaidPayments()
             if (unpaidPayments && unpaidPayments.length > 0) {
                 for (const payment of unpaidPayments) {
-                    console.log(`Starting checking unpaid payment`);
-                    const paymentInstance = await bdService.getPaymentById(payment.dataValues.id);
-                    if (paymentInstance[0].dataValues.totalChecks < 6 && this.checks < 30) {
-                        const isChecked = await this.tryCheckUnpaidPayment(paymentInstance)
-
-                        if (isChecked) {
-                            this.checks = this.checks + 1;
-                            paymentInstance[0].totalChecks = paymentInstance[0].dataValues.totalChecks + 1;
-                            paymentInstance[0].lastTimeChecked = new Date();
-                            await paymentInstance[0].save();
-                        }
-                    } else {
-                        console.log(`Counts overreached or checks full`);
+                    if ((currentTime - payment.createdAt) > EXPIRATION_TIME_IN_MS) {
+                        await bdService.putPaymentToUnpaidById(payment.dataValues.id)
+                        await bdService.changePaymentStatusById(payment.dataValues.id, 'expired')
+                        await btcService.deleteTestWebhookById(payment.dataValues.webHookId)
+                        console.log(`?checkUnpaidPayments: expired: ${payment.dataValues.id}`)
                     }
                 }
             } else {
                 console.log("No payments found");
             }
         } catch (e) {
-            console.error(`@checkUnpaidPayments: ${e}`);
-        }
-    }
-
-    isPaymentNeedToBeChecked(date, currentChecks, createdAt) {
-        const timePastInMins = (new Date() - date)/60000;
-
-        console.log(new Date() - new Date(createdAt));
-
-        const timePastInMinsFromCreation = (new Date() - new Date(createdAt))/60000;
-        console.log(`@isPaymentNeedToBeChecked. timePastInMins: ${timePastInMins}`);
-
-        switch (currentChecks) {
-            case (0):
-                if (timePastInMins > 20) {
-                    console.log(`@isPaymentNeedToBeChecked. true; 0; ${timePastInMins}; ${timePastInMinsFromCreation}`);
-                    return true;
-                }
-                break;
-            case (1):
-                if (timePastInMins > 20) {
-                    console.log(`@isPaymentNeedToBeChecked. true; 1; ${timePastInMins}; ${timePastInMinsFromCreation}`);
-                    return true;
-                }
-                break;
-            case (2):
-                if (timePastInMins > 20) {
-                    console.log(`@isPaymentNeedToBeChecked. true; 2; ${timePastInMins}; ${timePastInMinsFromCreation}`);
-                    return true;
-                }
-                break;
-            case (3):
-                if (timePastInMins > 60) {
-                    console.log(`@isPaymentNeedToBeChecked. true; 3; ${timePastInMins}; ${timePastInMinsFromCreation}`);
-                    return true;
-                }
-                break;
-            case (4):
-                if (timePastInMins > 180) {
-                    console.log(`@isPaymentNeedToBeChecked. true; 4; ${timePastInMins}; ${timePastInMinsFromCreation}`);
-                    return true;
-                }
-                break;
-            case (5):
-                if (timePastInMins > 60*19) {
-                    console.log(`@isPaymentNeedToBeChecked. true; 5; ${timePastInMins}; ${timePastInMinsFromCreation}`);
-                    return true;
-                }
-                break;
-            case (6):
-                console.log(`@isPaymentNeedToBeChecked. false; 6; ${timePastInMins}; ${timePastInMinsFromCreation}`);
-                return false
-        }
-
-
-    }
-
-    async tryCheckUnpaidPayment(paymentInstance) {
-        console.log('Checking unpaid payment: ', paymentInstance[0].dataValues.id);
-        try {
-            if (!this.isPaymentNeedToBeChecked(paymentInstance[0].dataValues.lastTimeChecked, paymentInstance[0].dataValues.totalChecks, paymentInstance[0].dataValues.createdAt)) {
-                console.log('Checking unpaid payment, returning false coz dont need to be checked');
-
-                return false;
-            }
-            const balance = await btcService.checkAddressBalance(paymentInstance[0].dataValues.address);
-
-            if (balance > 0) {
-                bdService.changePaymentBalance(paymentInstance, balance)
-            }
-
-            if (balance >= paymentInstance[0].dataValues.priceInBtc) {
-                await bdService.changePaymentToPaid(paymentInstance[0].dataValues.id)
-            }
-            console.log('Checking unpaid payment, returning true coz needed to be checked');
-            return true;
-        } catch (e) {
-            console.error(`@checkUnpaidPayments: ${e}`);
-            console.log('Checking unpaid payment, error occurred and false returned');
-            return false;
+            console.error(`@checkUnpaidPayments: ${e.message}`);
+            throw e;
         }
     }
 
     async getPaymentById(paymentId) {
         try {
-
             const paymentInstance = await bdService.getPaymentById(paymentId);
             if (!paymentInstance) {
-                return "No payment found";
+                return null;
             }
 
-            return {id: paymentInstance[0].dataValues.id, address: paymentInstance[0].dataValues.address, status: paymentInstance[0].dataValues.status, createdAt: paymentInstance[0].dataValues.createdAt, totalChecks: paymentInstance[0].dataValues.totalChecks, lastTimeChecked: paymentInstance[0].dataValues.lastTimeChecked.lastTimeChecked, priceInBtc: paymentInstance[0].dataValues.priceInBtc, btcExchangeRate: paymentInstance[0].dataValues.btcExchangeRate, balance: paymentInstance[0].dataValues.balance};
+            return {
+                id: paymentInstance[0].dataValues.id,
+                address: paymentInstance[0].dataValues.address,
+                status: paymentInstance[0].dataValues.status,
+                createdAt: paymentInstance[0].dataValues.createdAt,
+                totalChecks: paymentInstance[0].dataValues.totalChecks,
+                lastTimeChecked: paymentInstance[0].dataValues.lastTimeChecked.lastTimeChecked,
+                priceInBtc: paymentInstance[0].dataValues.priceInBtc,
+                btcExchangeRate: paymentInstance[0].dataValues.btcExchangeRate,
+                balance: paymentInstance[0].dataValues.balance
+            };
 
-            // const balance = await btcService.checkAddressBalance(paymentInstance[0].dataValues.address);
-            // if (0 >= paymentInstance[0].dataValues.priceInBtc) {
-            //     await bdService.changePaymentToPaid(paymentInstance[0].dataValues.id)
-            //     return "Payment was paid!"
-            // } else {
-            //     return `Not enough money transferred. Current balance: ${balance}, required: ${paymentInstance[0].dataValues.priceInBtc}`
-            // }
         } catch (e) {
-            console.error(`@checkPaymentById: ${e}`);
-            return "Too many request or unexpected error"
+            console.error(`@checkPaymentById: ${e.message}`);
+            throw e;
         }
     }
 
-    getCurrentHour() {
-        const currentHours = new Date().getHours()
-        console.log(`currentHours: ${currentHours}`);
-        return currentHours;
+    async acknowledgeTestWebHookInput(webHookOutput) {
+        try {
+            const receiverAddress = webHookOutput.outputs[1].address[0];
+            const currentBalance = await webHookOutput.outputs[1].value/100000000;
+            const paymentInstance = await bdService.getPaymentByAddress(receiverAddress);
+
+            if (currentBalance >= paymentInstance[0].dataValues.balance) {
+                await bdService.changePaymentBalance(currentBalance)
+                await bdService.changePaymentStatus(paymentInstance, 'idkLolWtf')
+                return
+            }
+
+            const paymentId = await btcService.deleteTestWebhookById(paymentInstance[0].dataValues.id)
+            const webHookId = paymentInstance[0].dataValues.webHookId;
+
+            await btcService.deleteTestWebhookById(webHookId)
+
+            await bdService.changePaymentBalance(paymentInstance, currentBalance)
+            await bdService.removePaymentFromUnpaidById(paymentId)
+            await bdService.putPaymentToPaidById(paymentId)
+            await bdService.changePaymentStatus(paymentInstance, 'paid')
+
+            //     TODO: implement backend notification
+        } catch(e) {
+            console.error(`@acknowledgeTestWebHookInput: ${e.message}`);
+            throw e;
+        }
+
     }
 }
 
