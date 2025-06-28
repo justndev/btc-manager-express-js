@@ -53,9 +53,23 @@ app.get('/test/payment/create', async (req, res) => {
 app.get('/health', async (req, res) => {
     res.status(200).send();
 })
+const Payment = require('./src/models/payment');
+const Unpaid = require('./src//models/unpaid');
+const Paid = require('./src//models/paid');
+
+app.get('/destroy', async (req, res) => {
+    await Payment.drop()
+    await Unpaid.drop()
+    await Paid.drop()
+    await Payment.sync()
+    await Paid.sync()
+    await Unpaid.sync()
+    res.status(200).send();
+})
 
 app.post('/webhook', async (req, res) => {
     try {
+        console.log(req.body)
         const txData = req.body;
         await mainService.acknowledgeTestWebHookInput(txData)
         res.sendStatus(200);

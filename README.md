@@ -1,14 +1,16 @@
 # Bitcoin Payment Manager (In Progress...)
 
-A Node.js application for processing Bitcoin payments with automatic payment status checking and management. It uses BlockCypher API and requires BIP39 wallet for further HDWallet operations.
-
 ## Overview
+Hi, visitor!
+This project is part of tempchat.xyz, but I’ve made it available as a standalone tool. It’s a Node.js application for processing Bitcoin payments, supporting automatic status checks and payment management.
+It uses the BlockCypher API and requires a BIP39 wallet for HD Wallet operations. You can test the service using the Bitcoin Testnet (testnet3). Feel free to ask me for a test BTC faucet link or find one yourself.
 
-This service allows you to create and manage Bitcoin payment processes. It generates unique Bitcoin addresses for payments, tracks their status, and provides APIs for payment creation and verification. Currently, API allows to manually check if created payment was paid. But there is also implemented an algorithm, which will be checking unpaid addresses (6 times) in one day period. 
+Note: Fund transferring is not yet implemented but is planned.
+If you find this useful, consider leaving a ⭐ on the repository!
 
 ## Features
 
-- **Bitcoin Address Generation**: Creates unique Bitcoin addresses for each payment
+- **Bitcoin Address Generation**: Creates unique Bitcoin addresses for each payment from HD Wallet
 - **Payment Status Tracking**: Automatically checks payment statuses at configurable intervals
 - **Exchange Rate Integration**: Fetches current BTC to EUR exchange rates
 - **Database Persistence**: Stores all payment information in PostgreSQL
@@ -57,7 +59,7 @@ Host: localhost
 
 5. Start the application
 ```bash
-npm start
+node index.js
 ```
 
 ## API Endpoints
@@ -66,61 +68,74 @@ npm start
 ```
 GET /payment/create
 ```
-Creates a new payment and returns the Bitcoin address and payment ID.
+```
+GET /test/payment/create
+```
+Creates a new payment and returns the Bitcoin address and payment ID. Test endpoint creates it in testnet3.
 
 **Response:**
 ```json
 {
-  "address": "bitcoin_address",
-  "id": "payment_id"
+  "address": "...",
+  "id": "...",
+  "btcExchangeRate": 91565,
+  "IP": "1.1.1.1",
+  "createdAt": "2025-06-28 11:36:42.005+00",
+  "status":  "unpaid",
+  "senderWallet":  "...",
+  "webHookId": "...",
+  "public":  "...",
+  "path": "m/1",
+  "balance": 0,
+  "priceInBtc": 0.00010921
 }
 ```
 
-### Check Payment Status
+### Get Payment
 ```
-GET /payment/check?id=payment_id
+GET /payment/get?id=payment_id
 ```
-Checks the status of a payment by ID.
+Basically retrieves payment from database. Suitable of course both for testnet3 and main networks. 
 
 **Response:**
-- If paid: `"Payment was paid!"`
-- If unpaid: `"Not enough money transferred. Current balance: [balance], required: [required_amount]"`
-- If error: `"Too many request or unexpected error"`
+```json
+{
+  "address": "...",
+  "id": "...",
+  "btcExchangeRate": 91565,
+  "createdAt": "2025-06-28 11:36:42.005+00",
+  "status":  "unpaid"/"paid"/"expired"/"low_amount",
+  "balance": 0,
+  "priceInBtc": 0.00010921
+}
+```
 
 ## System Architecture
 
 ### Components
 
-1. **Main Service**: Manages payment creation and status checking
-2. **BTC Service**: Interacts with BlockCypher API for Bitcoin operations
-3. **DB Service**: Handles database operations
-4. **Worker Thread Manager**: Runs background jobs for checking unpaid payments
+1. **index.js**: Controller. App starting point
+2. **Main Service**: Manages payment creation and status checking
+3. **BTC Service**: Interacts with BlockCypher API for Bitcoin operations
+4. **DB Service**: Handles database operations
+5. **Worker Thread Manager**: Runs background jobs for checking unpaid payments
+6. **Models, db**: ORM related files
 
 ### Payment Lifecycle
 
-1. Payment is created with a unique Bitcoin address
-2. Payment status is initially set to "unpaid"
-3. Worker thread periodically checks payment status
-4. When sufficient funds are received, payment status changes to "paid"
+1. Payment is created with a unique Bitcoin address, setting up webhook
+2. Worker thread will remove expired (after 12h) payments and delete webhooks
+3. When sufficient funds are received, payment status changes to "paid", or will be marked as "low_amount"
 
-### Payment Status Checking Algorithm
-
-The system uses a smart checking algorithm with increasing intervals:
-- First 3 checks: Every 20 minutes
-- 4th check: After 60 minutes
-- 5th check: After 180 minutes
-- 6th check: After 19 hours
 
 ## Database Schema
 
 ### Payments Table
 - `id`: UUID, primary key
 - `IP`: Client IP address
-- `lastTimeChecked`: Timestamp of last status check
-- `totalChecks`: Number of status checks performed
 - `createdAt`: Payment creation timestamp
-- `status`: Payment status ('paid' or 'unpaid')
-- `senderWallet`: Sender's wallet (if available)
+- `status`: Payment status ('paid' | 'unpaid' | 'expired' | 'low_amount')
+- `senderWallet`: Sender's wallet (if available) # No usages currently
 - `address`: Bitcoin address for payment
 - `public`: Public key
 - `path`: HD wallet path
@@ -132,7 +147,10 @@ The system uses a smart checking algorithm with increasing intervals:
 
 ### Paid Table
 - `id`: Payment ID (foreign key)
-- `paidAt`: Timestamp when payment was marked as paid
+
+## In Progress:
+- `Create Transaction`: send funds from address 1 to address 2. Unfortunately, BlockCypher do not support creating TX in testnet3. Yes I am broke :D   
+
 
 ## License
 

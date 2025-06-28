@@ -107,8 +107,6 @@ class MainService {
                 address: paymentInstance[0].dataValues.address,
                 status: paymentInstance[0].dataValues.status,
                 createdAt: paymentInstance[0].dataValues.createdAt,
-                totalChecks: paymentInstance[0].dataValues.totalChecks,
-                lastTimeChecked: paymentInstance[0].dataValues.lastTimeChecked.lastTimeChecked,
                 priceInBtc: paymentInstance[0].dataValues.priceInBtc,
                 btcExchangeRate: paymentInstance[0].dataValues.btcExchangeRate,
                 balance: paymentInstance[0].dataValues.balance
@@ -122,17 +120,17 @@ class MainService {
 
     async acknowledgeTestWebHookInput(webHookOutput) {
         try {
-            const receiverAddress = webHookOutput.outputs[1].address[0];
+            const receiverAddress = webHookOutput.outputs[1].addresses[0];
             const currentBalance = await webHookOutput.outputs[1].value/100000000;
             const paymentInstance = (await bdService.getPaymentByAddress(receiverAddress))[0];
 
-            if (currentBalance >= paymentInstance.dataValues.balance) {
+            if (currentBalance < paymentInstance.dataValues.priceInBtc) {
                 await bdService.changePaymentBalance(paymentInstance, currentBalance)
-                await bdService.changePaymentStatus(paymentInstance, 'idkLolWtf')
+                await bdService.changePaymentStatus(paymentInstance, 'low_amount')
                 return
             }
 
-            const paymentId = await btcService.deleteTestWebhookById(paymentInstance.dataValues.id)
+            const paymentId = paymentInstance.dataValues.id;
             const webHookId = paymentInstance.dataValues.webHookId;
 
             await btcService.deleteTestWebhookById(webHookId)
@@ -147,7 +145,34 @@ class MainService {
             console.error(`@acknowledgeTestWebHookInput: ${e.message}`);
             throw e;
         }
+    }
+    async acknowledgeWebHookInput(webHookOutput) {
+        try {
+            const receiverAddress = webHookOutput.outputs[1].addresses[0];
+            const currentBalance = await webHookOutput.outputs[1].value/100000000;
+            const paymentInstance = (await bdService.getPaymentByAddress(receiverAddress))[0];
 
+            if (currentBalance < paymentInstance.dataValues.priceInBtc) {
+                await bdService.changePaymentBalance(paymentInstance, currentBalance)
+                await bdService.changePaymentStatus(paymentInstance, 'low_amount')
+                return
+            }
+
+            const paymentId = paymentInstance.dataValues.id;
+            const webHookId = paymentInstance.dataValues.webHookId;
+
+            await btcService.deleteWebhookById(webHookId)
+
+            await bdService.changePaymentBalance(paymentInstance, currentBalance)
+            await bdService.removePaymentFromUnpaidById(paymentId)
+            await bdService.putPaymentToPaidById(paymentId)
+            await bdService.changePaymentStatus(paymentInstance, 'paid')
+
+            //     TODO: implement backend notification
+        } catch(e) {
+            console.error(`@acknowledgeTestWebHookInput: ${e.message}`);
+            throw e;
+        }
     }
 }
 
