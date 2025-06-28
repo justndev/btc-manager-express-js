@@ -6,12 +6,13 @@ async function startManager() {
 
     while(true){
         try {
-            const mins = 720
             await mainService.checkUnpaidPayments();
-            await sleep(60000 * mins);
         } catch (e) {
             console.error(`@startManager: ${e.message}`);
         }
+        const mins = 720
+        await sleep(60000 * mins);
+
     }
 }
 

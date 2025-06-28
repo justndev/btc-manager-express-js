@@ -57,8 +57,8 @@ class DBService {
 
     async changePaymentStatus(payment, newStatus) {
         try {
-            payment[0].status = newStatus
-            payment[0].save()
+            payment.status = newStatus
+            payment.save()
         } catch (e) {
             console.error(`@changePaymentStatusById: ${e.message}`);
             throw e;
@@ -127,8 +127,8 @@ class DBService {
 
     async changePaymentBalance(payment, newBalance) {
         try {
-            payment[0].balance = newBalance
-            payment[0].save()
+            payment.balance = newBalance
+            payment.save()
         } catch (e) {
             console.error(`@changePaymentBalance: ${e.message}`);
             throw e;

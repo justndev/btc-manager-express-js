@@ -80,8 +80,8 @@ class MainService {
             if (unpaidPayments && unpaidPayments.length > 0) {
                 for (const payment of unpaidPayments) {
                     if ((currentTime - payment.createdAt) > EXPIRATION_TIME_IN_MS) {
-                        await bdService.putPaymentToUnpaidById(payment.dataValues.id)
-                        await bdService.changePaymentStatusById(payment.dataValues.id, 'expired')
+                        await bdService.removePaymentFromUnpaidById(payment.dataValues.id)
+                        await bdService.changePaymentStatus(payment, 'expired')
                         await btcService.deleteTestWebhookById(payment.dataValues.webHookId)
                         console.log(`?checkUnpaidPayments: expired: ${payment.dataValues.id}`)
                     }
@@ -124,16 +124,16 @@ class MainService {
         try {
             const receiverAddress = webHookOutput.outputs[1].address[0];
             const currentBalance = await webHookOutput.outputs[1].value/100000000;
-            const paymentInstance = await bdService.getPaymentByAddress(receiverAddress);
+            const paymentInstance = (await bdService.getPaymentByAddress(receiverAddress))[0];
 
-            if (currentBalance >= paymentInstance[0].dataValues.balance) {
-                await bdService.changePaymentBalance(currentBalance)
+            if (currentBalance >= paymentInstance.dataValues.balance) {
+                await bdService.changePaymentBalance(paymentInstance, currentBalance)
                 await bdService.changePaymentStatus(paymentInstance, 'idkLolWtf')
                 return
             }
 
-            const paymentId = await btcService.deleteTestWebhookById(paymentInstance[0].dataValues.id)
-            const webHookId = paymentInstance[0].dataValues.webHookId;
+            const paymentId = await btcService.deleteTestWebhookById(paymentInstance.dataValues.id)
+            const webHookId = paymentInstance.dataValues.webHookId;
 
             await btcService.deleteTestWebhookById(webHookId)
 

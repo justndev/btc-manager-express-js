@@ -1,9 +1,8 @@
-const { Sequelize, DataTypes } = require('sequelize');
+const { DataTypes } = require('sequelize');
 
-const sequelize = new Sequelize('btc-manager-db', 'postgres', 'postgres', {
-    host: 'localhost',
-    dialect: 'postgres',
-});
+const sequelize = require('../db');
+
+
 const Payment = sequelize.define('payments', {
     id: {
         type: DataTypes.STRING,

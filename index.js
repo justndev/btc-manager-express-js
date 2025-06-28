@@ -5,11 +5,9 @@ const { Worker } = require('worker_threads');
 const { Sequelize } = require('sequelize');
 
 
-const sequelize = new Sequelize('btc-manager-db', 'postgres', 'postgres', {
-    host: 'localhost',
-    dialect: 'postgres',
-});
+const sequelize = require('./src/db');
 sequelize.authenticate()
+
 require("dotenv").config();
 
 const app = express();
@@ -44,9 +42,8 @@ process.on('unhandledRejection', (reason, promise) => {
 
 app.get('/test/payment/create', async (req, res) => {
     try {
-        const txData = req.body;
-        await mainService.acknowledgeTestWebHookInput(txData)
-        res.sendStatus(200);
+        const result = await mainService.createNewTestPayment()
+        res.status(200).send(result);
     } catch (e) {
         console.error(`@/test/payment/create: ${e}`);
         res.status(500).send(`Internal Server Error: ${e.message}`);
