@@ -69,7 +69,6 @@ app.get('/destroy', async (req, res) => {
 
 app.post('/webhook', async (req, res) => {
     try {
-        console.log(req.body)
         const txData = req.body;
         await mainService.acknowledgeTestWebHookInput(txData)
         res.sendStatus(200);

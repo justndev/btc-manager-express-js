@@ -18,7 +18,7 @@ class DBService {
                 priceInBtc: priceInBtc,
                 btcExchangeRate: btcExchangeRate
             });
-            return {address: newPayment.address, id: newPayment.id, createdAt: newPayment.createdAt, price: newPayment.priceInBtc};
+            return {address: newPayment.address, id: newPayment.id, createdAt: newPayment.createdAt, priceInBtc: newPayment.priceInBtc, balance: 0, status: 'unpaid'};
         } catch (e) {
             console.error(`@createNewPayment: ${e.message}`);
             throw e;
